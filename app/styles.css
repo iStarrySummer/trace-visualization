@@ -491,39 +491,6 @@ select {
   min-height: 350px;
 }
 
-.playback-controls {
-  display: grid;
-  grid-template-columns: auto minmax(100px, 1fr) auto;
-  gap: 0.75rem;
-  align-items: center;
-  margin-top: 0.45rem;
-}
-
-.playback-controls .button {
-  min-height: 36px;
-  padding: 0.35rem 0.75rem;
-  color: var(--cyan);
-}
-
-.playback-controls input[type="range"] {
-  width: 100%;
-  accent-color: var(--strategy-reflect);
-}
-
-.playback-controls span {
-  min-width: 4rem;
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.playback-controls button:disabled,
-.playback-controls input:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
 .vega-chart .vega-embed,
 .vega-chart .vega-embed > div,
 .vega-chart canvas,
@@ -1277,14 +1244,6 @@ footer {
     flex-direction: column;
   }
 
-  .playback-controls {
-    grid-template-columns: auto minmax(80px, 1fr);
-  }
-
-  .playback-controls span {
-    grid-column: 1 / -1;
-    text-align: right;
-  }
 }
 
 

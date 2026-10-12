@@ -39,7 +39,7 @@ python3 src/pipeline.py \
 
 ## 系统视图与联动
 
-系统在原有错误恢复路径图、任务×策略完成率矩阵与运行时间线之上，加入了九组 Vega-Lite 高级视图：参数驱动的气泡轨迹、`window(rank)` 条形图竞赛、`interval` 刷选联动、滚动均值与标准差波动带、分组回归、相关性热力图、核密度山脊图、最近点悬停十字线以及绑定尺度的缩放平移。两个播放视图由 JavaScript 推进 Vega 参数，其中策略轨迹预先插值为 48 帧；顶部筛选会同步更新全部视图，回归图和缩放图中的运行点可联动下方时间线。设计参考并改写自 [UW Data Visualization Curriculum](https://observablehq.com/@uwdata/data-visualization-curriculum)，完整第三方声明见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+系统在原有错误恢复路径图、任务×策略完成率矩阵与运行时间线之上，加入了九组 Vega-Lite 高级视图：参数驱动的气泡轨迹、`window(rank)` 条形图竞赛、`interval` 刷选联动、滚动均值与标准差波动带、分组回归、相关性热力图、核密度山脊图、最近点悬停十字线以及绑定尺度的缩放平移。两个演化视图均预插值为 240 帧并自动循环，使用 Canvas 与逐帧异步调度保持流畅，离开视口时自动暂停；顶部筛选会同步更新全部视图，回归图和缩放图中的运行点可联动下方时间线。设计参考并改写自 [UW Data Visualization Curriculum](https://observablehq.com/@uwdata/data-visualization-curriculum)，完整第三方声明见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
 
 ## 仓库结构
 

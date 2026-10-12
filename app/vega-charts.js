@@ -30,6 +30,8 @@
   ];
   const strategyDomain = ["直接提示", "结构化反思"];
   const strategyRange = [COLORS.direct, COLORS.reflect];
+  const TRAJECTORY_FRAMES = 240;
+  const RACE_FRAMES = 240;
   const players = new Map();
   let renderRevision = 0;
 
@@ -139,11 +141,11 @@
     return min === max ? [Math.min(0, min), max + 1] : [min, max];
   }
 
-  function trajectoryData(rows, frames = 48) {
+  function trajectoryData(rows, frames = TRAJECTORY_FRAMES) {
     const out = [];
     groupRows(rows, "group_label").forEach((group) => {
       const ordered = [...group].sort((a, b) => a.order - b.order);
-      const states = [];
+      const states = [{ x: 0, y: 0, size: 0 }];
       let duration = 0;
       let successes = 0;
       let tools = 0;
@@ -185,7 +187,7 @@
       height: 300,
       params: [{ name: "cur", value: 0 }],
       transform: [
-        { calculate: "(datum.frame - cur + 6) / 6", as: "trail_opacity" },
+        { calculate: "(datum.frame - cur + 18) / 18", as: "trail_opacity" },
         { filter: "datum.trail_opacity > 0 && datum.trail_opacity <= 1" },
       ],
       mark: { type: "circle", stroke: "white", strokeWidth: 1.2 },
@@ -223,24 +225,34 @@
     };
   }
 
-  function raceData(rows) {
+  function raceData(rows, frames = RACE_FRAMES) {
     const categories = [...new Set(rows.map((row) => row.group_label))];
-    const values = new Map(categories.map((category) => [category, 0]));
     const meta = new Map(rows.map((row) => [row.group_label, row]));
+    const states = [new Map(categories.map((category) => [category, 0]))];
+    rows.forEach((row) => {
+      const next = new Map(states[states.length - 1]);
+      next.set(row.group_label, next.get(row.group_label) + row.success_int);
+      states.push(next);
+    });
     const out = [];
-    rows.forEach((row, frame) => {
-      values.set(row.group_label, values.get(row.group_label) + row.success_int);
+    for (let frame = 0; frame < frames; frame += 1) {
+      const position = (frame / Math.max(1, frames - 1)) * rows.length;
+      const low = Math.min(rows.length, Math.floor(position));
+      const high = Math.min(rows.length, low + 1);
+      const ratio = position - low;
       categories.forEach((category) => {
         const sample = meta.get(category);
+        const start = states[low].get(category);
+        const end = states[high].get(category);
         out.push({
           frame,
           group_label: category,
           task_label: sample.task_label,
           strategy_label: sample.strategy_label,
-          value: values.get(category),
+          value: +(start + (end - start) * ratio).toFixed(3),
         });
       });
-    });
+    }
     return out;
   }
 
@@ -694,7 +706,7 @@
     window.requestAnimationFrame(() => container.classList.add("is-chart-animated"));
   }
 
-  async function embed(container, spec, onPick) {
+  async function embed(container, spec, onPick, renderer = "svg") {
     if (!container) return null;
     if (typeof window.vegaEmbed !== "function") {
       showFallback(container, "请检查 Vega 运行文件。 ");
@@ -704,7 +716,7 @@
     try {
       const result = await window.vegaEmbed(container, spec, {
         actions: false,
-        renderer: "svg",
+        renderer,
         tooltip: { theme: "light" },
       });
       if (onPick) {
@@ -713,7 +725,7 @@
           if (runId) onPick(runId);
         });
       }
-      animateVegaMarks(container);
+      if (renderer === "svg") animateVegaMarks(container);
       return result.view;
     } catch (error) {
       console.error("TRACE Vega-Lite render failed", error);
@@ -724,8 +736,16 @@
 
   function stopPlayer(key) {
     const player = players.get(key);
-    if (player?.timer) window.clearInterval(player.timer);
-    if (player?.button) player.button.textContent = "播放";
+    if (!player) return;
+    player.disposed = true;
+    if (player.raf) window.cancelAnimationFrame(player.raf);
+    player.observer?.disconnect();
+    document.removeEventListener("visibilitychange", player.syncPlayback);
+    if (player.motionQuery?.removeEventListener) {
+      player.motionQuery.removeEventListener("change", player.handleMotionChange);
+    } else {
+      player.motionQuery?.removeListener?.(player.handleMotionChange);
+    }
     players.delete(key);
   }
 
@@ -733,55 +753,111 @@
     [...players.keys()].forEach(stopPlayer);
   }
 
-  function wirePlayer(key, view, maxFrame) {
-    const button = document.querySelector(`#${key}Play`);
-    const range = document.querySelector(`#${key}Range`);
-    const label = document.querySelector(`#${key}Frame`);
-    if (!button || !range || !label) return;
+  function startAutoPlayer(key, view, maxFrame, container, motionDuration = 10000) {
     stopPlayer(key);
-    range.max = String(maxFrame);
-    range.value = "0";
-    button.disabled = !view || maxFrame < 1;
-    range.disabled = !view || maxFrame < 1;
-    let position = 0;
-    const total = maxFrame + 1;
-    const updateLabel = () => {
-      const digits = String(total).length;
-      label.textContent = `${String(position + 1).padStart(digits, "0")} / ${total}`;
+    if (!view || maxFrame < 1 || !container) return;
+
+    const player = {
+      view,
+      maxFrame,
+      container,
+      motionDuration,
+      cycleDuration: motionDuration + 900,
+      elapsed: 0,
+      lastNow: null,
+      lastFrame: -1,
+      queuedFrame: null,
+      pending: false,
+      visible: false,
+      raf: null,
+      observer: null,
+      disposed: false,
+      motionQuery: window.matchMedia?.("(prefers-reduced-motion: reduce)") || null,
     };
-    const setFrame = async (next) => {
-      position = Math.max(0, Math.min(maxFrame, next));
-      range.value = String(position);
-      updateLabel();
-      if (view) await view.signal("cur", position).runAsync();
-    };
-    const player = { button, range, label, timer: null };
-    const pause = () => {
-      if (player.timer) window.clearInterval(player.timer);
-      player.timer = null;
-      button.textContent = "播放";
-    };
-    range.oninput = () => {
-      pause();
-      setFrame(Number(range.value));
-    };
-    button.onclick = () => {
-      if (player.timer) {
-        pause();
+
+    const renderFrame = async (frame) => {
+      if (player.disposed || frame === player.lastFrame) return;
+      if (player.pending) {
+        player.queuedFrame = frame;
         return;
       }
-      if (position >= maxFrame) setFrame(0);
-      button.textContent = "暂停";
-      player.timer = window.setInterval(() => {
-        if (position >= maxFrame) {
-          pause();
-          return;
-        }
-        setFrame(position + 1);
-      }, 90);
+      player.pending = true;
+      player.lastFrame = frame;
+      try {
+        await player.view.signal("cur", frame).runAsync();
+      } catch (error) {
+        if (!player.disposed) console.error("TRACE animation update failed", error);
+      } finally {
+        player.pending = false;
+        const queued = player.queuedFrame;
+        player.queuedFrame = null;
+        if (!player.disposed && queued !== null && queued !== player.lastFrame) renderFrame(queued);
+      }
     };
+
+    const tick = (now) => {
+      player.raf = null;
+      if (player.disposed || !player.visible || document.hidden || player.motionQuery?.matches) return;
+      if (player.lastNow !== null) player.elapsed += Math.min(100, now - player.lastNow);
+      player.lastNow = now;
+      const cyclePosition = player.elapsed % player.cycleDuration;
+      const progress = Math.min(1, cyclePosition / player.motionDuration);
+      renderFrame(Math.round(progress * player.maxFrame));
+      player.raf = window.requestAnimationFrame(tick);
+    };
+
+    const pause = () => {
+      if (player.raf) {
+        window.cancelAnimationFrame(player.raf);
+        player.raf = null;
+      }
+      player.lastNow = null;
+    };
+
+    const play = () => {
+      if (!player.raf && !player.disposed) player.raf = window.requestAnimationFrame(tick);
+    };
+
+    player.syncPlayback = () => {
+      if (player.visible && !document.hidden && !player.motionQuery?.matches) play();
+      else pause();
+    };
+
+    player.handleMotionChange = () => {
+      if (player.motionQuery?.matches) {
+        pause();
+        renderFrame(player.maxFrame);
+      } else {
+        player.elapsed = 0;
+        player.lastFrame = -1;
+        renderFrame(0);
+        player.syncPlayback();
+      }
+    };
+
+    document.addEventListener("visibilitychange", player.syncPlayback);
+    if (player.motionQuery?.addEventListener) {
+      player.motionQuery.addEventListener("change", player.handleMotionChange);
+    } else {
+      player.motionQuery?.addListener?.(player.handleMotionChange);
+    }
+
+    if ("IntersectionObserver" in window) {
+      player.observer = new IntersectionObserver(
+        ([entry]) => {
+          player.visible = Boolean(entry?.isIntersecting && entry.intersectionRatio > 0.04);
+          player.syncPlayback();
+        },
+        { threshold: [0, 0.04, 0.25] },
+      );
+      player.observer.observe(container);
+    } else {
+      player.visible = true;
+    }
+
     players.set(key, player);
-    updateLabel();
+    if (player.motionQuery?.matches) renderFrame(maxFrame);
+    else player.syncPlayback();
   }
 
   function chartWidth(selector, padding = 50) {
@@ -813,8 +889,8 @@
     }
 
     const promises = [
-      embed(document.querySelector("#trajectoryChart"), trajectorySpec(rows, chartWidth("#trajectoryChart"))),
-      embed(document.querySelector("#raceChart"), raceSpec(rows, chartWidth("#raceChart", 88))),
+      embed(document.querySelector("#trajectoryChart"), trajectorySpec(rows, chartWidth("#trajectoryChart")), null, "canvas"),
+      embed(document.querySelector("#raceChart"), raceSpec(rows, chartWidth("#raceChart", 88)), null, "canvas"),
       embed(document.querySelector("#brushChart"), brushSpec(rows, chartWidth("#brushChart"))),
       embed(document.querySelector("#rollingChart"), rollingSpec(rows, chartWidth("#rollingChart"))),
       embed(document.querySelector("#regressionChart"), regressionSpec(rows, chartWidth("#regressionChart")), onPick),
@@ -825,8 +901,8 @@
     ];
     const views = await Promise.all(promises);
     if (revision !== renderRevision) return;
-    wirePlayer("trajectory", views[0], 47);
-    wirePlayer("race", views[1], Math.max(0, rows.length - 1));
+    startAutoPlayer("trajectory", views[0], TRAJECTORY_FRAMES - 1, document.querySelector("#trajectoryPanel"), 11000);
+    startAutoPlayer("race", views[1], RACE_FRAMES - 1, document.querySelector("#racePanel"), 12500);
   }
 
   window.TraceVega = { renderAll, colors: COLORS };
