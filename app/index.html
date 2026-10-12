@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="TRACE：比较不同提示策略下 AI Coding 错误恢复路径的交互式可视分析系统"
+    />
+    <title>TRACE · AI Coding 行为显微镜</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="TRACE 首页">
+        <span class="brand-mark">T</span>
+        <strong>TRACE</strong>
+      </a>
+      <div class="header-meta">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span id="headerSource">正在载入数据</span>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="data-notice" id="top" role="status" aria-live="polite">
+        <span class="notice-label" id="modeLabel">数据状态</span>
+        <span class="notice-note" id="sourceNote">正在载入</span>
+        <span class="notice-count" id="messageCount"></span>
+      </section>
+
+      <section class="controls" aria-label="全局筛选">
+        <label>
+          <span>任务类型</span>
+          <select id="taskFilter">
+            <option value="all">全部任务</option>
+          </select>
+        </label>
+        <label>
+          <span>提示策略</span>
+          <select id="strategyFilter">
+            <option value="all">全部策略</option>
+          </select>
+        </label>
+        <label>
+          <span>最终状态</span>
+          <select id="statusFilter">
+            <option value="all">全部状态</option>
+            <option value="success">成功</option>
+            <option value="failure">失败</option>
+          </select>
+        </label>
+        <button class="button button-ghost" id="resetButton" type="button">重置筛选</button>
+        <button class="button" id="exportButton" type="button">导出当前结果</button>
+        <p class="filter-summary" id="filterSummary" aria-live="polite"></p>
+      </section>
+
+      <section class="metric-grid" aria-label="核心指标">
+        <article class="metric">
+          <span>样本运行</span>
+          <strong id="metricRuns">—</strong>
+        </article>
+        <article class="metric metric-ring">
+          <svg class="progress-ring progress-ring-success" viewBox="0 0 64 64" aria-hidden="true">
+            <circle class="progress-ring-track" cx="32" cy="32" r="25"></circle>
+            <circle class="progress-ring-value" id="metricSuccessRing" cx="32" cy="32" r="25" pathLength="100"></circle>
+          </svg>
+          <div class="metric-copy">
+            <span>最终完成率</span>
+            <strong id="metricSuccess">—</strong>
+          </div>
+        </article>
+        <article class="metric metric-ring">
+          <svg class="progress-ring progress-ring-first" viewBox="0 0 64 64" aria-hidden="true">
+            <circle class="progress-ring-track" cx="32" cy="32" r="25"></circle>
+            <circle class="progress-ring-value" id="metricFirstPassRing" cx="32" cy="32" r="25" pathLength="100"></circle>
+          </svg>
+          <div class="metric-copy">
+            <span>首次通过率</span>
+            <strong id="metricFirstPass">—</strong>
+          </div>
+        </article>
+        <article class="metric metric-ring">
+          <svg class="progress-ring progress-ring-recovery" viewBox="0 0 64 64" aria-hidden="true">
+            <circle class="progress-ring-track" cx="32" cy="32" r="25"></circle>
+            <circle class="progress-ring-value" id="metricRecoveryRing" cx="32" cy="32" r="25" pathLength="100"></circle>
+          </svg>
+          <div class="metric-copy">
+            <span>错误恢复率</span>
+            <strong id="metricRecovery">—</strong>
+          </div>
+        </article>
+        <article class="metric metric-accent">
+          <span>修复轮次中位数</span>
+          <strong id="metricFixes">—</strong>
+        </article>
+      </section>
+
+      <section class="dashboard-grid" aria-label="行为分析视图">
+        <article class="panel panel-full vega-panel" id="scatterPanel">
+          <header class="panel-header">
+            <h2>时长 × 修复轮次</h2>
+            <div class="legend strategy-legend" aria-label="提示策略颜色">
+              <span><i class="legend-swatch direct"></i>直接提示</span>
+              <span><i class="legend-swatch reflect"></i>结构化反思</span>
+            </div>
+          </header>
+          <div class="vega-chart linked-chart" id="scatterChart" aria-live="polite"></div>
+        </article>
+
+        <article class="panel panel-full vega-panel" id="facetPanel">
+          <header class="panel-header">
+            <h2>任务完成率</h2>
+          </header>
+          <div class="vega-chart" id="facetChart" aria-live="polite"></div>
+        </article>
+
+        <article class="panel panel-full vega-panel" id="crossfilterPanel">
+          <header class="panel-header">
+            <h2>多变量筛选</h2>
+          </header>
+          <div class="vega-chart" id="crossfilterChart" aria-live="polite"></div>
+        </article>
+
+        <article class="panel panel-wide" id="pathPanel">
+          <header class="panel-header">
+            <h2>错误恢复路径</h2>
+            <div class="legend" aria-label="路径图图例">
+              <span><i class="legend-swatch success"></i>成功路径</span>
+              <span><i class="legend-swatch failure"></i>失败路径</span>
+            </div>
+          </header>
+          <div class="chart-wrap" id="flowChart" aria-live="polite"></div>
+        </article>
+
+        <article class="panel" id="matrixPanel">
+          <header class="panel-header">
+            <h2>任务 × 策略</h2>
+          </header>
+          <div id="matrixChart" class="matrix-chart"></div>
+          <div class="matrix-scale" aria-hidden="true"><span>0%</span><i></i><span>100%</span></div>
+        </article>
+
+        <article class="panel panel-wide explorer" id="explorerPanel">
+          <header class="panel-header">
+            <h2>运行日志</h2>
+            <span class="selected-run" id="selectedRunBadge">未选择</span>
+          </header>
+          <div class="explorer-layout">
+            <div>
+              <div class="run-list-head"><span>当前运行</span><span id="runListCount">0 条</span></div>
+              <div class="run-list" id="runList" role="listbox" aria-label="运行列表"></div>
+            </div>
+            <div class="timeline-area">
+              <div class="run-summary" id="runSummary"></div>
+              <ol class="timeline" id="timeline"></ol>
+              <details class="log-details">
+                <summary>查看匿名化日志详情</summary>
+                <pre id="logDetail"></pre>
+              </details>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="insights" aria-labelledby="insights-title">
+        <header>
+          <h2 id="insights-title">关键发现</h2>
+        </header>
+        <ol id="insightList"></ol>
+      </section>
+    </main>
+
+    <footer>
+      <span>演示数据仅供功能验收，不代表研究结论。</span>
+    </footer>
+
+    <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+    <script src="https://cdn.jsdelivr.net/npm/vega@6/build/vega.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@6.1.0/build/vega-lite.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@7/build/vega-embed.min.js"></script>
+    <script src="data.js"></script>
+    <script src="vega-charts.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
+
