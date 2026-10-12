@@ -18,18 +18,18 @@
     Other: "其他错误",
   };
   const colors = {
-    direct: "#D6604D",
-    reflect: "#4393C3",
-    directSoft: "#FDDBC7",
-    reflectSoft: "#D1E5F0",
-    ink: "#2B2B2B",
-    muted: "#6B6B6B",
-    neutral: "#F7F7F7",
-    error: "#B2182B",
-    diagnose: "#D6604D",
-    fix: "#4393C3",
-    pass: "#2166AC",
-    fail: "#B2182B",
+    direct: "#CF5C6F",
+    reflect: "#1F8A8A",
+    directSoft: "#F6DDE2",
+    reflectSoft: "#D6ECEB",
+    ink: "#14202B",
+    muted: "#5B6A72",
+    neutral: "#F4F6F9",
+    error: "#B23A52",
+    diagnose: "#E0A030",
+    fix: "#5B6FB8",
+    pass: "#1F8A8A",
+    fail: "#B23A52",
   };
 
   const state = {
@@ -45,7 +45,6 @@
     statusFilter: $("#statusFilter"),
     flow: $("#flowChart"),
     matrix: $("#matrixChart"),
-    scatter: $("#scatterChart"),
     tooltip: $("#tooltip"),
   };
 
@@ -586,7 +585,8 @@
 
   function renderAdvancedViews(runs) {
     if (!window.TraceVega) {
-      renderScatter(runs);
+      const fallback = $("#regressionChart");
+      if (fallback) fallback.innerHTML = '<div class="empty-state">Vega-Lite 未加载。</div>';
       return Promise.resolve();
     }
     return window.TraceVega.renderAll(runs, data.labels || {}, (runId) => {

@@ -97,31 +97,86 @@
         </article>
       </section>
 
-      <section class="dashboard-grid" aria-label="行为分析视图">
-        <article class="panel panel-full vega-panel" id="scatterPanel">
+      <section class="advanced-grid" aria-label="Vega-Lite 高级分析视图">
+        <article class="panel vega-panel" id="trajectoryPanel">
           <header class="panel-header">
-            <h2>时长 × 修复轮次</h2>
+            <h2><span>01</span>策略轨迹</h2>
             <div class="legend strategy-legend" aria-label="提示策略颜色">
               <span><i class="legend-swatch direct"></i>直接提示</span>
               <span><i class="legend-swatch reflect"></i>结构化反思</span>
             </div>
           </header>
-          <div class="vega-chart linked-chart" id="scatterChart" aria-live="polite"></div>
+          <div class="vega-chart" id="trajectoryChart" aria-live="polite"></div>
+          <div class="playback-controls">
+            <button class="button button-ghost" id="trajectoryPlay" type="button">播放</button>
+            <input id="trajectoryRange" type="range" min="0" max="47" value="0" aria-label="策略轨迹帧" />
+            <span id="trajectoryFrame">01 / 48</span>
+          </div>
         </article>
 
-        <article class="panel panel-full vega-panel" id="facetPanel">
+        <article class="panel vega-panel" id="racePanel">
           <header class="panel-header">
-            <h2>任务完成率</h2>
+            <h2><span>02</span>累计排名</h2>
           </header>
-          <div class="vega-chart" id="facetChart" aria-live="polite"></div>
+          <div class="vega-chart" id="raceChart" aria-live="polite"></div>
+          <div class="playback-controls">
+            <button class="button button-ghost" id="racePlay" type="button">播放</button>
+            <input id="raceRange" type="range" min="0" max="59" value="0" aria-label="累计排名帧" />
+            <span id="raceFrame">01 / 60</span>
+          </div>
         </article>
 
-        <article class="panel panel-full vega-panel" id="crossfilterPanel">
+        <article class="panel panel-wide vega-panel" id="brushPanel">
           <header class="panel-header">
-            <h2>多变量筛选</h2>
+            <h2><span>03</span>区间刷选</h2>
           </header>
-          <div class="vega-chart" id="crossfilterChart" aria-live="polite"></div>
+          <div class="vega-chart chart-tall" id="brushChart" aria-live="polite"></div>
         </article>
+
+        <article class="panel vega-panel" id="rollingPanel">
+          <header class="panel-header">
+            <h2><span>04</span>滚动趋势</h2>
+          </header>
+          <div class="vega-chart" id="rollingChart" aria-live="polite"></div>
+        </article>
+
+        <article class="panel vega-panel" id="regressionPanel">
+          <header class="panel-header">
+            <h2><span>05</span>回归诊断</h2>
+          </header>
+          <div class="vega-chart" id="regressionChart" aria-live="polite"></div>
+        </article>
+
+        <article class="panel vega-panel" id="correlationPanel">
+          <header class="panel-header">
+            <h2><span>06</span>指标相关</h2>
+          </header>
+          <div class="vega-chart" id="correlationChart" aria-live="polite"></div>
+        </article>
+
+        <article class="panel vega-panel" id="ridgePanel">
+          <header class="panel-header">
+            <h2><span>07</span>时长分布</h2>
+          </header>
+          <div class="vega-chart chart-ridge" id="ridgeChart" aria-live="polite"></div>
+        </article>
+
+        <article class="panel vega-panel" id="hoverPanel">
+          <header class="panel-header">
+            <h2><span>08</span>成功率轨迹</h2>
+          </header>
+          <div class="vega-chart" id="hoverChart" aria-live="polite"></div>
+        </article>
+
+        <article class="panel vega-panel" id="zoomPanel">
+          <header class="panel-header">
+            <h2><span>09</span>缩放探索</h2>
+          </header>
+          <div class="vega-chart" id="zoomChart" aria-live="polite"></div>
+        </article>
+      </section>
+
+      <section class="dashboard-grid" aria-label="行为分析视图">
 
         <article class="panel panel-wide" id="pathPanel">
           <header class="panel-header">
